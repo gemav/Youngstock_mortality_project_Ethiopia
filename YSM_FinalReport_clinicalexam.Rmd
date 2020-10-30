@@ -1,0 +1,295 @@
+---
+title: "YSM_FinalReport_clinicalexam"
+author: "Gema Vidal_7526"
+date: "10/6/2020"
+output: word_document
+---
+
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_clinicalexam_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$Species)[levels(df$Species) == ""] <- NA
+levels(df$abdomen_pingsounds)[levels(df$abdomen_pingsounds) == ""] <- NA
+levels(df$abdomenauscultation_notes)[levels(df$abdomenauscultation_notes) == ""] <- NA
+levels(df$abdomenauscultation_notes)[levels(df$abdomenauscultation_notes) == " "] <- NA
+levels(df$attitude)[levels(df$attitude) == ""] <- NA
+levels(df$coccidia_species_result)[levels(df$coccidia_species_result) == ""] <- NA
+levels(df$coughing)[levels(df$coughing) == ""] <- NA
+levels(df$crackles)[levels(df$crackles) == ""] <- NA
+levels(df$generalnotes)[levels(df$generalnotes) == ""] <- NA
+levels(df$jointsexam)[levels(df$jointsexam) == ""] <- NA
+levels(df$jointsexam_notes)[levels(df$jointsexam_notes) == ""] <- NA
+levels(df$navel)[levels(df$navel) == ""] <- NA
+levels(df$navelexam_notes)[levels(df$navelexam_notes) == ""] <- NA
+levels(df$parasitology_other_result)[levels(df$parasitology_other_result) == ""] <- NA
+levels(df$result_IBR)[levels(df$result_IBR) == ""] <- NA
+levels(df$result_RID)[levels(df$result_RID) == ""] <- NA
+levels(df$IgG_Status)[levels(df$IgG_Status) == ""] <- NA
+levels(df$result_IgG)[levels(df$result_IgG) == ""] <- NA
+levels(df$student)[levels(df$student) == ""] <- NA
+levels(df$test_kit)[levels(df$test_kit) == ""] <- NA
+levels(df$thoracicauscultation_notes)[levels(df$thoracicauscultation_notes) == ""] <- NA
+levels(df$feces_blood)[levels(df$feces_blood) == ""] <- NA
+levels(df$typeofdiarrhea)[levels(df$typeofdiarrhea) == ""] <- NA
+levels(df$typeofdiarrhea_nuru_chalachew)[levels(df$typeofdiarrhea_nuru_chalachew) == ""] <- NA
+levels(df$wheezes)[levels(df$wheezes) == ""] <- NA
+```
+
+
+```{r}
+df$age_weeks_catg <- cut(df$age_weeks, c(0, 1, 2, 4, 8, 24, 100))
+df$parity_catg <- cut(df$parity, c(0, 1, 2, 3, 4, 16))
+df$dam_ageparturition_catg <- cut(df$dam_ageparturition_years, c(0, 5, 7, 8, 16))
+```
+
+
+
+Clinical Exam
+-------------
+
+Select a subset of data that contains clinical exam data only
+```{r}
+df_exam <- subset(df, ((!is.na(df$BCS)) | 
+                      (!is.na(df$attitude)) |
+                      (!is.na(df$cough_score)) |
+                        (!is.na(df$ear_score)) |
+                        (!is.na(df$eye_score)) |
+                        (!is.na(df$nasaldischarge_score)) |
+                        (!is.na(df$rectal_temp)) |
+                        (!is.na(df$rectal_temp_score)) |
+                        (!is.na(df$fecal_score)) |
+                        (!is.na(df$coughing)) |
+                        (!is.na(df$crackles)) |
+                        (!is.na(df$increased_respiratoryeffort)) |
+                        (!is.na(df$jointsexam)) |
+                        (!is.na(df$navel)) |
+                        (!is.na(df$heart_rate_perminute)) |
+                        (!is.na(df$respiratory_rate_perminute))), 
+                  select = c("BCS","attitude",
+                             "cough_score","ear_score",
+                             "eye_score","nasaldischarge_score",
+                             "rectal_temp_score","fecal_score",
+                             "coughing","crackles",
+                             "increased_respiratoryeffort","jointsexam",
+                             "navel","heart_rate_perminute",
+                             "respiratory_rate_perminute",
+                             "result_IgG","Species","district","parity","parity_catg",
+                             "prod_system","age_weeks","age_weeks_catg"))
+```
+
+
+Drop unused levels
+```{r}
+df_exam$BCS <- factor(df_exam$BCS)
+df_exam$attitude <- factor(df_exam$attitude)
+df_exam$cough_score <- factor(df_exam$cough_score)
+df_exam$ear_score <- factor(df_exam$ear_score)
+df_exam$eye_score <- factor(df_exam$eye_score)
+
+df_exam$nasaldischarge_score <- factor(df_exam$nasaldischarge_score)
+df_exam$rectal_temp_score <- factor(df_exam$rectal_temp_score)
+df_exam$fecal_score <- factor(df_exam$fecal_score)
+df_exam$coughing <- factor(df_exam$coughing)
+df_exam$crackles <- factor(df_exam$crackles)
+
+df_exam$increased_respiratoryeffort <- factor(df_exam$increased_respiratoryeffort)
+df_exam$jointsexam <- factor(df_exam$jointsexam)
+df_exam$navel <- factor(df_exam$navel)
+df_exam$result_IgG <- factor(df_exam$result_IgG)
+df_exam$Species <- factor(df_exam$Species)
+
+df_exam$district <- factor(df_exam$district)
+df_exam$parity_catg <- factor(df_exam$parity_catg)
+df_exam$prod_system <- factor(df_exam$prod_system)
+df_exam$age_weeks_catg <- factor(df_exam$age_weeks_catg)
+```
+
+
+```{r}
+str(df_exam$nasaldischarge_score)
+```
+
+
+
+```{r}
+df_exam$age_weeks_catg <- cut(df_exam$age_weeks, c(0, 4, 12, 100))
+df_exam$cough_score_catg <- revalue(df_exam$cough_score, c("0"="<1", "1"="<1",
+                                                           "2"="2+", "3"="2+"))
+df_exam$nasaldischarge_score_catg <- revalue(df_exam$nasaldischarge_score, c("0"="<1", "1"="<1",
+                                                                             "2"="2+", "3"="2+"))
+df_exam$ear_score_catg <- revalue(df_exam$ear_score, c("0"="<1", "1"="<1",
+                                                       "2"="2+", "3"="2+"))
+
+df_exam$eye_score_catg <- revalue(df_exam$eye_score, c("0"="<1", "1"="<1",
+                                                       "2"="2+", "3"="2+"))
+
+df_exam$rectal_temp_catg <- revalue(df_exam$rectal_temp_score, c("0"="<1", "1"="<1",
+                                                                 "2"="2+", "3"="2+"))
+
+df_exam$fecal_score_catg <- revalue(df_exam$fecal_score, c("0"="<1", "1"="<1",
+                                                           "2"="2+", "3"="2+"))
+```
+
+```{r}
+df_exam$BCS_catg <- revalue(df_exam$BCS, c("1"="1", "2"="2", "3"="3", "4"="4+", "5"="4+"))
+```
+
+
+
+Respiratory Symptoms
+```{r}
+df_exam_resp <- df_exam[ which(df_exam$prod_system != "Mixed-crop"), ]
+
+tableOne_resp <- CreateTableOne(vars = c("cough_score_catg","nasaldischarge_score_catg",
+                                         "coughing","crackles",
+                                         "increased_respiratoryeffort"), 
+                                strata = c("prod_system"), 
+                                data= df_exam_resp, 
+                                factorVars = c("prod_system","age_weeks_catg"))
+
+tableOne_resp
+```
+
+
+```{r}
+tableOne_resp <- CreateTableOne(vars = c("cough_score_catg","nasaldischarge_score_catg",
+                                         "coughing","crackles",
+                                         "increased_respiratoryeffort"), 
+                                strata = c("prod_system","age_weeks_catg"), 
+                                data= df_exam_resp, 
+                                factorVars = c("prod_system","age_weeks_catg"))
+
+tableOne_resp
+```
+
+```{r}
+tableOne_resp <- CreateTableOne(vars = c("cough_score_catg","nasaldischarge_score_catg",
+                                         "coughing","crackles",
+                                         "increased_respiratoryeffort"), 
+                                strata = c("age_weeks_catg"), 
+                                data= df_exam_resp, 
+                                factorVars = c("prod_system","age_weeks_catg"))
+
+tableOne_resp
+```
+
+
+
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg","cough_score_catg",
+                                            "ear_score_catg","eye_score_catg",
+                                            "nasaldischarge_score_catg","rectal_temp_catg",
+                                            "fecal_score_catg"), 
+                                   strata = c("prod_system"), 
+                                   data= df_exam, 
+                                   factorVars = c("prod_system","age_weeks_catg"))
+
+tableOne_general
+```
+I did not use cough score, ear score, eye score, or nasal discharge score any further because of data quality issues.
+
+
+Using the variables I can use
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg",
+                                            "rectal_temp_catg",
+                                            "fecal_score_catg"), 
+                                   strata = c("prod_system"), 
+                                   data= df_exam, 
+                                   factorVars = c("prod_system","age_weeks_catg"))
+
+tableOne_general
+```
+
+What the association between fecal score and BCS? 
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg"), 
+                                   strata = c("fecal_score_catg"), 
+                                   data= df_exam, 
+                                   factorVars = c("prod_system","age_weeks_catg","rectal_temp_catg","fecal_score_catg"))
+
+tableOne_general
+```
+
+
+Is also age related with BCS? or maternal malnutrition? are stunted calves being less healthy?
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg"), 
+                                   strata = c("age_weeks_catg","fecal_score_catg"), 
+                                   data= df_exam, 
+                                   factorVars = c("prod_system","age_weeks_catg","rectal_temp_catg","fecal_score_catg"))
+
+tableOne_general
+```
+
+
+Since we are interested in what is the age distribution and BCS distribution among those with diarrhea, I will take a subset for fecal score > 2+ and then I'll do the table again
+```{r}
+df_exam_diarrhea <- df_exam[df_exam$fecal_score_catg == "2+", ]
+df_exam_diarrhea$fecal_score_catg <- factor(df_exam_diarrhea$fecal_score_catg)
+```
+
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg"), 
+                                   strata = c("age_weeks_catg"), 
+                                   data= df_exam_diarrhea, 
+                                   factorVars = c("prod_system","age_weeks_catg","rectal_temp_catg"))
+
+tableOne_general
+```
+
+
+
+
+
+
+```{r}
+tableOne_general <- CreateTableOne(vars = c("BCS_catg"), 
+                                   strata = c("prod_system"), 
+                                   data= df_exam, 
+                                   factorVars = c("prod_system","age_weeks_catg","rectal_temp_catg","fecal_score_catg"))
+
+tableOne_general
+```
+
+
+
+
+
+
+
+
+
+

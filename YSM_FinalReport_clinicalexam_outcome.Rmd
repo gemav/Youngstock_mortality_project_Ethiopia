@@ -1,0 +1,1265 @@
+---
+title: "YSM_FinalReport_outcomes"
+author: "Gema Vidal_7526"
+date: "8/26/2020"
+output: word_document
+---
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_clinicalexam_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$Species)[levels(df$Species) == ""] <- NA
+levels(df$abdomen_pingsounds)[levels(df$abdomen_pingsounds) == ""] <- NA
+levels(df$abdomenauscultation_notes)[levels(df$abdomenauscultation_notes) == ""] <- NA
+levels(df$abdomenauscultation_notes)[levels(df$abdomenauscultation_notes) == " "] <- NA
+levels(df$attitude)[levels(df$attitude) == ""] <- NA
+levels(df$coccidia_species_result)[levels(df$coccidia_species_result) == ""] <- NA
+levels(df$coughing)[levels(df$coughing) == ""] <- NA
+levels(df$crackles)[levels(df$crackles) == ""] <- NA
+levels(df$generalnotes)[levels(df$generalnotes) == ""] <- NA
+levels(df$jointsexam)[levels(df$jointsexam) == ""] <- NA
+levels(df$jointsexam_notes)[levels(df$jointsexam_notes) == ""] <- NA
+levels(df$navel)[levels(df$navel) == ""] <- NA
+levels(df$navelexam_notes)[levels(df$navelexam_notes) == ""] <- NA
+levels(df$parasitology_other_result)[levels(df$parasitology_other_result) == ""] <- NA
+levels(df$result_IBR)[levels(df$result_IBR) == ""] <- NA
+levels(df$result_RID)[levels(df$result_RID) == ""] <- NA
+levels(df$IgG_Status)[levels(df$IgG_Status) == ""] <- NA
+levels(df$result_IgG)[levels(df$result_IgG) == ""] <- NA
+levels(df$student)[levels(df$student) == ""] <- NA
+levels(df$test_kit)[levels(df$test_kit) == ""] <- NA
+levels(df$thoracicauscultation_notes)[levels(df$thoracicauscultation_notes) == ""] <- NA
+levels(df$feces_blood)[levels(df$feces_blood) == ""] <- NA
+levels(df$typeofdiarrhea)[levels(df$typeofdiarrhea) == ""] <- NA
+levels(df$typeofdiarrhea_nuru_chalachew)[levels(df$typeofdiarrhea_nuru_chalachew) == ""] <- NA
+levels(df$wheezes)[levels(df$wheezes) == ""] <- NA
+```
+
+
+```{r}
+summary(df$dam_ageparturition_years)
+```
+
+```{r}
+#tiff('[write name of file here].tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = dam_ageparturition_years))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+#p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Parity")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#dev.off()
+```
+
+
+Distribution of age in weeks
+```{r}
+summary(df$age_weeks)
+```
+
+
+```{r}
+p = ggplot(df, aes(x = age_weeks))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+#p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Calf Age (weeks)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+```
+
+
+
+
+```{r}
+df$age_weeks_catg <- cut(df$age_weeks, c(0, 1, 2, 4, 8, 24, 100))
+df$parity_catg <- cut(df$parity, c(0, 1, 2, 3, 4, 16))
+df$dam_ageparturition_catg <- cut(df$dam_ageparturition_years, c(0, 5, 7, 8, 16))
+```
+
+
+Save the dataframe
+```{r}
+#write.csv(df, "df_clinicalexam_cleaned.csv")
+```
+
+
+Make different subsets of the dataframe so for each group of pathogens, we only use those that were tested
+
+
+
+
+1. Hemoparasites
+----------------
+
+Create a new dataframe
+```{r}
+df_hemo <- subset(df, (!is.na(df$anaplasma_centrale_result) | 
+                         (!is.na(df$anaplasma_marginale_result)) |
+                         (!is.na(df$babesia_bovis_result))), 
+                  select = c("anaplasma_centrale_result","anaplasma_marginale_result",
+                             "babesia_bigemina_result","babesia_bovis_result",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+```
+
+
+Drop unused levels
+```{r}
+df_hemo$age_weeks_catg <- factor(df_hemo$age_weeks_catg)
+levels(df_hemo$age_weeks_catg)
+```
+
+```{r}
+head(df_hemo)
+```
+
+
+I can only stratify by either age, or parity
+```{r}
+tableOne_hemo <- CreateTableOne(vars = c("anaplasma_centrale_result", "anaplasma_marginale_result",
+                                         "babesia_bigemina_result", "babesia_bovis_result"), 
+                                strata = "age_weeks_catg", 
+                                data = df_hemo, 
+                                factorVars = c("anaplasma_centrale_result", "anaplasma_marginale_result",
+                                               "babesia_bigemina_result", "babesia_bovis_result"))
+
+tableOne_hemo
+#tableOne$CatTable
+```
+
+
+2. Fecal Parasites
+------------------
+
+Create a new dataframe
+```{r}
+df_fecalparas <- subset(df, (!is.na(df$coccidia_result) | 
+                               (!is.na(df$result_ascaris)) |
+                               (!is.na(df$result_fasciola)) |
+                               (!is.na(df$result_monezia)) |
+                               (!is.na(df$result_paramphistom)) |
+                               (!is.na(df$result_schistosoma)) |
+                               (!is.na(df$result_strongly)) |
+                               (!is.na(df$result_trichuris))), 
+                  select = c("coccidia_result","result_ascaris",
+                             "result_fasciola","result_monezia",
+                             "result_paramphistom","result_schistosoma",
+                             "result_strongly","result_trichuris",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+```
+
+
+For this particular dataset, it makes more sense to categorize age_weeks in a different way
+```{r}
+df_fecalparas$age_weeks_catg <- cut(df_fecalparas$age_weeks, c(0, 4, 8, 100))
+```
+
+
+Drop unused levels
+```{r}
+df_fecalparas$prod_system <- factor(df_fecalparas$prod_system)
+```
+
+
+When removing one of the three production systems, the age distribution may have changed. Checking out the age distribution now and see if it that different from what we had before:
+```{r}
+summary(df_fecalparas$age_weeks)
+```
+
+Lets plot this
+```{r}
+p = ggplot(df_fecalparas, aes(x = age_weeks))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+#p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Calf Age (weeks)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+```
+
+Making distinction by production system
+```{r}
+p = ggplot(df_fecalparas, aes(x = age_weeks, color = prod_system))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+#p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Calf Age (weeks)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+```
+
+
+
+```{r}
+p = ggplot(df_fecalparas, aes(x = age_weeks, color = prod_system))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of calf age (weeks) by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Age (weeks)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+```{r}
+p = ggplot(df_fecalparas, aes(x = age_weeks))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of calf age (weeks)")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Age (weeks)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+Tail in this distribution is shorter and defintetely different. I need to re-categorize age_weeks given this new information.
+```{r}
+df_fecalparas$age_weeks_catg2 <- cut(df_fecalparas$age_weeks, c(0, 6, 12, 20, 50))
+```
+
+
+
+Parasites distribution by production system
+```{r}
+tableOne_paras <- CreateTableOne(vars = c("coccidia_result","result_ascaris","result_fasciola",
+                                          "result_monezia","result_paramphistom","result_schistosoma",
+                                          "result_strongly","result_trichuris"), 
+                                 strata = c("prod_system"), 
+                                 data= df_fecalparas, 
+                                 factorVars = c("coccidia_result","result_ascaris","result_fasciola",
+                                                "result_monezia","result_paramphistom","result_schistosoma",
+                                                "result_strongly","result_trichuris"))
+
+(tableOne_paras)
+```
+
+
+
+
+
+
+```{r}
+tableOne_paras <- CreateTableOne(vars = c("coccidia_result","result_ascaris","result_fasciola",
+                                          "result_monezia","result_paramphistom","result_schistosoma",
+                                          "result_strongly","result_trichuris"), 
+                                 strata = c("age_weeks_catg2"), 
+                                 data= df_fecalparas, 
+                                 factorVars = c("coccidia_result","result_ascaris","result_fasciola",
+                                                "result_monezia","result_paramphistom","result_schistosoma",
+                                                "result_strongly","result_trichuris"))
+
+(tableOne_paras)
+```
+
+
+
+3. Neonatal Diarrhea - Pathasure
+--------------------------------
+
+Lets explore first the variables fecal_score and fecal_score_Y1Y2
+```{r}
+summary(df$fecal_score)
+summary(df$fecal_score_Y1Y2)
+```
+
+Variable fecal_score is more complete (fewer missing values). Incorporte this one to the table with descriptive statistics below so I can stratify by clinical signs.
+
+
+Create a new dataframe
+```{r}
+df_pathasure <- subset(df, (!is.na(df$corona_result) | 
+                               (!is.na(df$crypto_result)) |
+                               (!is.na(df$ecoli_result)) |
+                               (!is.na(df$rota_result))), 
+                  select = c("corona_result","crypto_result",
+                             "ecoli_result","rota_result",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system","fecal_score"))
+```
+
+
+For this particular dataset, since different pathogens are strongly associated with certain age groups, it makes more sense to categorize age_weeks in a different way (this is based exclusively on subject knowledge, not distribution of data)
+```{r}
+df_pathasure$age_weeks_catg <- cut(df_pathasure$age_weeks, c(0, 2, 4, 8, 100))
+```
+
+
+Removing mixed crop-livestock because I will need it for later analyses. Also, dropping levels
+```{r}
+df_pathasure_i <- df_pathasure[df_pathasure$prod_system != "Mixed-crop", ]
+df_pathasure_i$prod_system <- factor(df_pathasure_i$prod_system)
+```
+
+
+Convert fecal_score from numeric to factor so I can aggregate score 2 with score 3
+```{r}
+df_pathasure_i$fecal_score_catg <- factor(df_pathasure_i$fecal_score)
+levels(df_pathasure_i$fecal_score_catg)
+
+df_pathasure_i$fecal_score_catg <- revalue(df_pathasure_i$fecal_score_catg, c("0"="0", "1"="1",
+                                                                              "2"="2+", "3"="2+"))
+levels(df_pathasure_i$fecal_score_catg)
+```
+
+
+
+
+Looking at distribution based on clinical symptoms when no scores are aggregated
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = "fecal_score", 
+                                     data= df_pathasure_i, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+
+
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = "fecal_score_catg", 
+                                     data= df_pathasure_i, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+Positive calves didn't have diarrhea. Is this true? Has floor type something to do with it? has the production system something to do with this?
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("fecal_score_catg"), 
+                                     strata = "prod_system", 
+                                     data= df_pathasure_i, 
+                                     factorVars = c("fecal_score_catg"))
+
+tableOne_pathasure
+```
+
+
+So obviously, there are differences by production system. Are these differences real? That is difficult to assess with the current data. Something that can be done to try to find out if some pathogens are associated with clinical signs, is to take just the subset of data that belongs to peri-urban farms, and analyze that separately.
+```{r}
+df_pathasure_periurban <- df_pathasure_i[df_pathasure_i$prod_system == "Peri-urban", ]
+df_pathasure_periurban$prod_system <- factor(df_pathasure_periurban$prod_system)
+
+
+df_pathasure_pastoral <- df_pathasure_i[df_pathasure_i$prod_system == "Pastoral", ]
+df_pathasure_pastoral$prod_system <- factor(df_pathasure_pastoral$prod_system)
+```
+
+
+
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = "fecal_score_catg", 
+                                     data= df_pathasure_periurban, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+
+
+Looking at the age distribution
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = "age_weeks_catg", 
+                                     data= df_pathasure_i, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+
+Looking at the age distribution by age and production system
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = c("prod_system","age_weeks_catg"), 
+                                     data= df_pathasure_i, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+This doesn't make sense because the age distribution is pretty different across production systems. Instead, I'll use different dataframes, one per production system
+
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = c("age_weeks_catg"), 
+                                     data= df_pathasure_periurban, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+
+```{r}
+tableOne_pathasure <- CreateTableOne(vars = c("corona_result","crypto_result",
+                                              "ecoli_result","rota_result"), 
+                                     strata = c("age_weeks_catg"), 
+                                     data= df_pathasure_pastoral, 
+                                     factorVars = c("corona_result","crypto_result",
+                                                    "ecoli_result","rota_result"))
+
+tableOne_pathasure
+```
+
+
+Break down by age group, production system, and fecal score (for peri-urban farms only).
+Since we are looking at 4 pathogens, do a mosaic plot for each pathogen individually
+
+```{r}
+dim(df_pathasure_i)
+```
+
+
+```{r}
+df_pathasure_periurban_corona <- df_pathasure_periurban[ ,c("corona_result", "prod_system", "age_weeks_catg", "fecal_score_catg")]
+df_pathasure_periurban_crypto <- df_pathasure_periurban[ ,c("crypto_result", "prod_system", "age_weeks_catg", "fecal_score_catg")]
+df_pathasure_periurban_ecoli <- df_pathasure_periurban[ ,c("ecoli_result", "prod_system", "age_weeks_catg", "fecal_score_catg")]
+df_pathasure_periurban_rota <- df_pathasure_periurban[ ,c("rota_result", "prod_system", "age_weeks_catg", "fecal_score_catg")]
+
+dim(df_pathasure_periurban_corona)
+dim(df_pathasure_periurban_crypto)
+dim(df_pathasure_periurban_ecoli)
+dim(df_pathasure_periurban_rota)
+```
+
+Bovine Coronavirus (no associations)
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ age_weeks_catg + fecal_score_catg, data = df_pathasure_periurban_corona, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+C. parvum (no associations)
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ age_weeks_catg + fecal_score_catg, data = df_pathasure_periurban_crypto, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+E. coli K99 (no associations)
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ age_weeks_catg + fecal_score_catg, data = df_pathasure_periurban_ecoli, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+Bovine Rotavirus (no associations)
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ age_weeks_catg + fecal_score_catg, data = df_pathasure_periurban_rota, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+4. Neonatal Diarrhea - Salmonella enterica & BVDV
+-------------------------------------------------
+
+Create a new dataframe
+```{r}
+df_enteric <- subset(df, (!is.na(df$result_salmonella_enterica) | 
+                            (!is.na(df$BVDV_result))), 
+                  select = c("result_salmonella_enterica",
+                             "BVDV_result",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+
+
+df_salmonella <- subset(df, (!is.na(df$result_salmonella_enterica)), 
+                        select = c("result_salmonella_enterica",
+                                   "age_weeks","age_weeks_catg",
+                                   "parity","parity_catg",
+                                   "dam_ageparturition_years","dam_ageparturition_catg",
+                                   "district","prod_system"))
+
+df_BVDV <- subset(df, (!is.na(df$BVDV_result)), 
+                  select = c("BVDV_result",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+
+```
+
+
+Dropping levels
+```{r}
+#df_pathasure_i <- df_pathasure[df_pathasure$prod_system != "Mixed-crop", ]
+df_salmonella$prod_system <- factor(df_salmonella$prod_system)
+df_salmonella$age_weeks_catg <- factor(df_salmonella$age_weeks_catg)
+df_salmonella$parity_catg <- factor(df_salmonella$parity_catg)
+df_salmonella$dam_ageparturition_catg <- factor(df_salmonella$dam_ageparturition_catg)
+df_salmonella$district <- factor(df_salmonella$district)
+```
+
+```{r}
+tableOne_salmonella <- CreateTableOne(vars = c("result_salmonella_enterica"), 
+                                      strata = "district", 
+                                      data= df_salmonella, 
+                                      factorVars = c("result_salmonella_enterica"))
+
+tableOne_salmonella
+```
+
+
+```{r}
+tableOne_BVDV <- CreateTableOne(vars = c("BVDV_result"), 
+                                      strata = "district", 
+                                      data= df_BVDV, 
+                                      factorVars = c("BVDV_result"))
+
+tableOne_BVDV
+```
+
+
+
+
+5. Respiratory viruses and bacteria
+-----------------------------------
+
+Create a new dataframe
+```{r}
+df_resp <- subset(df, (!is.na(df$m_hemolytica_result) | 
+                         (!is.na(df$p_multocida_result)) |
+                         (!is.na(df$result_ADV)) |
+                         (!is.na(df$result_BRSV)) |
+                         (!is.na(df$result_IBR)) |
+                         (!is.na(df$result_PIV3))), 
+                  select = c("m_hemolytica_result","p_multocida_result",
+                             "result_ADV","result_BRSV",
+                             "result_IBR","result_PIV3",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+
+df_resp_bact <- subset(df, (!is.na(df$m_hemolytica_result) | 
+                         (!is.na(df$p_multocida_result))), 
+                  select = c("m_hemolytica_result","p_multocida_result",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+
+
+df_resp_IBR <- subset(df, (!is.na(df$result_IBR)),
+                      select = c("result_IBR","result_PIV3",
+                                 "age_weeks","age_weeks_catg",
+                                 "parity","parity_catg",
+                                 "dam_ageparturition_years","dam_ageparturition_catg",
+                                 "district","prod_system"))
+
+df_resp_virus <- subset(df, (!is.na(df$result_ADV) |
+                          (!is.na(df$result_BRSV)) |
+                          (!is.na(df$result_PIV3))), 
+                        select = c("result_ADV","result_BRSV","result_PIV3",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+```
+
+
+```{r}
+df_resp_IBR$age_weeks_catg <- cut(df_resp_IBR$age_weeks, c(0, 4, 8, 12, 24, 100))
+df_resp_bact$age_weeks_catg <- cut(df_resp_bact$age_weeks, c(0, 4, 8, 12, 24, 100))
+df_resp_virus$age_weeks_catg <- cut(df_resp_virus$age_weeks, c(0, 4, 8, 12, 24, 100))
+```
+
+
+
+
+Dropping levels
+```{r}
+df_resp_bact$prod_system <- factor(df_resp_bact$prod_system)
+df_resp_bact$age_weeks_catg <- factor(df_resp_bact$age_weeks_catg)
+df_resp_bact$parity_catg <- factor(df_resp_bact$parity_catg)
+df_resp_bact$dam_ageparturition_catg <- factor(df_resp_bact$dam_ageparturition_catg)
+df_resp_bact$district <- factor(df_resp_bact$district)
+
+df_resp_IBR$prod_system <- factor(df_resp_IBR$prod_system)
+df_resp_IBR$age_weeks_catg <- factor(df_resp_IBR$age_weeks_catg)
+df_resp_IBR$parity_catg <- factor(df_resp_IBR$parity_catg)
+df_resp_IBR$dam_ageparturition_catg <- factor(df_resp_IBR$dam_ageparturition_catg)
+df_resp_IBR$district <- factor(df_resp_IBR$district)
+
+df_resp_virus$prod_system <- factor(df_resp_virus$prod_system)
+df_resp_virus$age_weeks_catg <- factor(df_resp_virus$age_weeks_catg)
+df_resp_virus$parity_catg <- factor(df_resp_virus$parity_catg)
+df_resp_virus$dam_ageparturition_catg <- factor(df_resp_virus$dam_ageparturition_catg)
+df_resp_virus$district <- factor(df_resp_virus$district)
+```
+
+
+```{r}
+tableOne_resp <- CreateTableOne(vars = c("m_hemolytica_result","p_multocida_result",
+                                         "result_ADV","result_BRSV",
+                                         "result_IBR","result_PIV3"), 
+                                strata = "prod_system", 
+                                data= df_resp, 
+                                factorVars = c("m_hemolytica_result","p_multocida_result",
+                                               "result_ADV","result_BRSV",
+                                               "result_IBR","result_PIV3"))
+
+tableOne_resp
+```
+
+
+```{r}
+tableOne_resp_bact <- CreateTableOne(vars = c("m_hemolytica_result","p_multocida_result"), 
+                                     strata = "age_weeks_catg", 
+                                     data= df_resp_bact, 
+                                     factorVars = c("m_hemolytica_result","p_multocida_result"))
+
+tableOne_resp_bact
+```
+
+
+```{r}
+tableOne_resp_IBR <- CreateTableOne(vars = c("result_IBR"), 
+                                     strata = "age_weeks_catg", 
+                                     data= df_resp_IBR, 
+                                     factorVars = c("result_IBR"))
+
+tableOne_resp_IBR
+```
+
+
+```{r}
+tableOne_resp_virus <- CreateTableOne(vars = c("result_ADV","result_BRSV","result_PIV3"), 
+                                     strata = "age_weeks_catg", 
+                                     data= df_resp_virus, 
+                                     factorVars = c("result_ADV","result_BRSV","result_PIV3"))
+
+tableOne_resp_virus
+```
+
+
+
+6. Passive Transfer
+-------------------
+
+Create new dataframe
+```{r}
+df_IgG <- subset(df, (!is.na(df$result_IgG)), 
+                 select = c("result_IgG",
+                             "age_weeks","age_weeks_catg",
+                             "parity","parity_catg",
+                             "dam_ageparturition_years","dam_ageparturition_catg",
+                             "district","prod_system"))
+```
+
+
+```{r}
+str(df_IgG)
+```
+
+
+
+Drop unused levels
+```{r}
+df_IgG$prod_system <- factor(df_IgG$prod_system)
+df_IgG$age_weeks_catg <- factor(df_IgG$age_weeks_catg)
+df_IgG$parity_catg <- factor(df_IgG$parity_catg)
+df_IgG$dam_ageparturition_catg <- factor(df_IgG$dam_ageparturition_catg)
+df_IgG$district <- factor(df_IgG$district)
+```
+
+
+Categorize continuous variables
+```{r}
+df_IgG$parity_catg <- cut(df_IgG$parity, c(0, 1, 2, 3, 16))
+df_IgG$dam_ageparturition_catg_2 <- cut(df_IgG$dam_ageparturition_years, c(0, 4, 6, 8, 16))
+```
+
+```{r}
+levels(df_IgG$result_IgG)
+```
+
+
+Create new outcome variable by renaming the original one and aggregate partial with failure passive transfer
+```{r}
+df_IgG$result_IgG_catg <- revalue(df_IgG$result_IgG, c("adequate"="adequate", 
+                                                       "partial"="partial/failure",
+                                                       "failure"="partial/failure"))
+levels(df_IgG$result_IgG_catg)
+```
+
+
+
+```{r}
+summary(df_IgG$parity)
+```
+
+
+Distribution of IgG levels by production system
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG"), 
+                               strata = c("prod_system"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG"))
+
+tableOne_IgG
+```
+
+
+Drop Mixed crop because it wasn't done there
+```{r}
+df_IgG <- df_IgG[df_IgG$prod_system != "Mixed-crop", ]
+df_IgG$prod_system <- factor(df_IgG$prod_system)
+```
+
+
+And get the same table as above but without mixed crop this time, so we can see the p-value
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG"), 
+                               strata = c("prod_system"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG"))
+
+tableOne_IgG
+```
+
+
+Is this p-value a Chi-Square test, or a Fisher's exact test?
+```{r}
+lapply(df_IgG[c(9)], function(i) summary(xtabs(~ i + result_IgG, data = df_IgG)))
+```
+
+Yes, the Chi-Square is not correct. We should use Fisher's instead
+```{r}
+#lapply(df_IgG[c(9)], function(i) fisher.test(df_IgG[,i], df_IgG$result_IgG, alternative = 'two.sided'))
+
+sapply(df_IgG[c(9)], fisher.test, df_IgG[[1]])
+```
+
+
+Change the outcome from adequate, partial, and failure, to adequate, partial/failure
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG_catg"), 
+                               strata = c("prod_system"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG_catg"))
+
+tableOne_IgG
+```
+
+Try Fisher's too
+```{r}
+#str(df_IgG)
+sapply(df_IgG[c(9)], fisher.test, df_IgG[[11]])
+```
+This p-value is what it is being reported.
+
+
+Distribution of IgG by parity (since older cows have been exposed to more pathogens, do older cows have calves with better IgG levels?)
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG"), 
+                               strata = c("parity_catg"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG"))
+
+tableOne_IgG
+```
+
+
+Same now but with failure and partial aggregated in one single level
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG_catg"), 
+                               strata = c("parity_catg"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG_catg"))
+
+tableOne_IgG
+```
+
+
+Doing Fisher's exact test now
+```{r}
+#str(df_IgG)
+sapply(df_IgG[c(5)], fisher.test, df_IgG[[11]])
+```
+
+
+Calves with partial or failure passive transfer were born from cattle with 2 or less parities. Is this the same result we would find if we looked at the dam age (using the variable that has been categorized using quartiles? (and it should be because parity and dam age should be associated).
+```{r}
+#str(df_IgG)
+```
+
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG"), 
+                               strata = c("dam_ageparturition_catg_2"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG"))
+
+tableOne_IgG
+```
+
+
+Now, try this again but using the IgG categorized into two levels
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG_catg"), 
+                               strata = c("dam_ageparturition_catg_2"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG_catg"))
+
+tableOne_IgG
+```
+
+And using Fisher's now:
+```{r}
+#str(df_IgG)
+sapply(df_IgG[c(10)], fisher.test, df_IgG[[11]])
+```
+
+
+
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG"), 
+                               strata = c("prod_system","parity_catg"), 
+                               data= df_IgG, 
+                               factorVars = c("result_IgG"))
+
+tableOne_IgG
+```
+
+
+```{r, fig.height = 10, fig.width = 10, echo = FALSE}
+mosaic(~ prod_system + parity_catg + result_IgG, data = df_IgG, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+
+It may be hard to see what is going on in each production system, also with low cell frequencies for some of the combinations.
+Subsetting by production system AND aggregating partiral with failure of passive transfer into a single level:
+```{r}
+df_IgG_pastoral <- df_IgG[df_IgG$prod_system == "Pastoral", ]
+df_IgG_pastoral$prod_system <- factor(df_IgG_pastoral$prod_system)
+
+df_IgG_periurban <- df_IgG[df_IgG$prod_system == "Peri-urban", ]
+df_IgG_periurban$prod_system <- factor(df_IgG_periurban$prod_system)
+```
+
+Pastoral herds
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("result_IgG_catg"), 
+                               strata = c("parity_catg"), 
+                               data= df_IgG_pastoral, 
+                               factorVars = c("result_IgG_catg"))
+
+tableOne_IgG
+```
+
+Fisher's exact test
+```{r}
+#str(df_IgG_pastoral)
+sapply(df_IgG_pastoral[c(5)], fisher.test, df_IgG_pastoral[[11]])
+```
+
+
+
+
+Peri-urban farms
+```{r}
+tableOne_IgG <- CreateTableOne(vars = c("parity_catg"), 
+                               strata = c("result_IgG_catg"), 
+                               data= df_IgG_periurban, 
+                               factorVars = c("parity_catg"))
+
+tableOne_IgG
+```
+
+Fisher's exact test
+```{r}
+#str(df_IgG_periurban)
+sapply(df_IgG_periurban[c(5)], fisher.test, df_IgG_periurban[[11]])
+```
+
+-------------------
+CLINICAL EXAM
+-------------------
+
+
+Fecal Score
+```{r}
+lapply(df[,c("fecal_score","typeofdiarrhea")], table, df[[80]])
+```
+
+
+
+Plots for Clinical Exam
+```{r}
+levels(as.factor(df$attitude))
+```
+
+
+
+
+BCS and its distribution by production system
+```{r stacked histogram by BCS, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_BCS_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(BCS), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + scale_x_discrete(drop = TRUE) + scale_fill_discrete(limits = c("1","2","3","4","5"))
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("BCS")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Attitude by Production System
+```{r stacked histogram by attitude, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_attitude_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = attitude, y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Attitude")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+
+Cough score and its distribution by production system
+```{r stacked histogram by cough_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(cough_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Cough Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Ear score and its distribution by production system
+```{r stacked histogram by cough_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(ear_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Ear Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Eye score and its distribution by production system
+```{r stacked histogram by cough_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(eye_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Eye Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Nasal discharge score and its distribution by production system
+```{r stacked histogram by cough_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(nasaldischarge_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Nasal Discharge Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Rectal temperature score and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(rectal_temp_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Rectal Temperature Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Rectal temperature and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = rectal_temp, color = prod_system))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Rectal Temperature")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+
+Fecal score and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(fecal_score), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Fecal Score")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Coughing and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(coughing), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Coughing")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Crackles and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(crackles), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Crackles")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+
+Increased respiratory effor and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(increased_respiratoryeffort), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Increased Respiratory Effort")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Joints exam and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(jointsexam), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Joints Exam")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Navel and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(navel), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Navel")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+
+Heart rate per minute and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = heart_rate_perminute,color = prod_system))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Heart rate per minute")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Repiration rate per minute and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = respiratory_rate_perminute, color = prod_system))
+p = p + geom_density()#(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Respiration rate per minute")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+Navel and its distribution by production system
+```{r stacked histogram by rectal_temp_score, fig.height = 6, fig.width = 8, echo = FALSE}
+#tiff('StackBar_cough_score_ProdSystem.tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = as.factor(navel), y = ..count.., fill = prod_system, na.rm = TRUE))
+p = p + geom_bar(position = position_dodge(width = 0.9), na.rm = TRUE)#(position = 'stack')
+#p = p + facet_wrap(~BCS, scales = 'free_x', ncol = 3)
+#p = p + ggtitle("Number of models by time aggregation and time before the event amongst the RF best models")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(legend.position = "bottom", plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Count") + xlab("Navel")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#ggsave('StackBar_TimeBack_BestBehaviors_6OR12.jpeg', plot = p)
+#dev.off()
+```
+
+
+

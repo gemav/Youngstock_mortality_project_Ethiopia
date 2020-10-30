@@ -1,0 +1,222 @@
+---
+title: "YSM_FinalReport_colostrum"
+author: "Gema Vidal_7526"
+date: "10/9/2020"
+output: word_document
+---
+
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_colostrum_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$Species)[levels(df$Species) == ""] <- NA
+levels(df$age_units)[levels(df$age_units) == ""] <- NA
+levels(df$colostrumfeeding)[levels(df$colostrumfeeding) == ""] <- NA
+levels(df$colostrumfromstepmom)[levels(df$colostrumfromstepmom) == ""] <- NA
+levels(df$colostrumwithin24hours)[levels(df$colostrumwithin24hours) == ""] <- NA
+levels(df$continuousaccesstodamfirst24hours)[levels(df$continuousaccesstodamfirst24hours) == ""] <- NA
+levels(df$reasonnocolostrumfedwithin24hours)[levels(df$reasonnocolostrumfedwithin24hours) == ""] <- NA
+levels(df$sex)[levels(df$sex) == ""] <- NA
+levels(df$timeofbirth)[levels(df$timeofbirth) == ""] <- NA
+levels(df$timeofcolostrumsucking)[levels(df$timeofcolostrumsucking) == ""] <- NA
+levels(df$timeofcolostrumsucking_Addisu)[levels(df$timeofcolostrumsucking_Addisu) == ""] <- NA
+levels(df$timeto_firstcolostrum)[levels(df$timeto_firstcolostrum) == ""] <- NA
+levels(df$timetofirstcolostrum_hrs_Chalachew)[levels(df$timetofirstcolostrum_hrs_Chalachew) == ""] <- NA
+
+```
+
+
+Drop unused levels
+```{r}
+df[c(2,4:8,11,13:20)] <- lapply(df[c(2,4:8,11,13:20)], factor)
+```
+
+
+
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("colostrumfeeding","colostrumfromstepmom",
+                                          "colostrumwithin24hours","continuousaccesstodamfirst24hours"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_colos
+```
+
+How many had calf unable to suck as main reason for colostrum not fed within 24 hours?
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("reasonnocolostrumfedwithin24hours"), 
+                                strata = c("colostrumwithin24hours"), 
+                                data= df, 
+                                factorVars = c("colostrumwithin24hours"))
+
+tableOne_colos
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ prod_system + colostrumwithin24hours, data = df, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ prod_system + continuousaccesstodamfirst24hours, data = df, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+Are there differences by sex or by time of birth?
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("colostrumfeeding","colostrumfromstepmom",
+                                          "colostrumwithin24hours","continuousaccesstodamfirst24hours"), 
+                                strata = c("sex"), 
+                                data= df, 
+                                factorVars = c("sex"))
+
+tableOne_colos
+```
+
+
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("colostrumfeeding","colostrumfromstepmom",
+                                          "colostrumwithin24hours","continuousaccesstodamfirst24hours"), 
+                                strata = c("timeofbirth"), 
+                                data= df, 
+                                factorVars = c("timeofbirth"))
+
+tableOne_colos
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ timeofbirth + colostrumwithin24hours, data = df, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+
+
+Looking into those variables that break down the first 24 hours into different hours
+```{r}
+df_colostrum_hours <- df[ which(df$prod_system != "Mixed-crop"), ]
+df_colostrum_hours$prod_system <- factor(df_colostrum_hours$prod_system)
+df_colostrum_hours$timeto_firstcolostrum <- factor(df_colostrum_hours$timeto_firstcolostrum)
+
+
+tableOne_colos <- CreateTableOne(vars = c("timeto_firstcolostrum"), 
+                                strata = c("prod_system"), 
+                                data= df_colostrum_hours, 
+                                factorVars = c("prod_system"))
+
+tableOne_colos
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ timeto_firstcolostrum + prod_system, data = df_colostrum_hours, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+Differences by sex and time of birth?
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("timeto_firstcolostrum"), 
+                                strata = c("sex"), 
+                                data= df_colostrum_hours, 
+                                factorVars = c("sex"))
+
+tableOne_colos
+```
+
+
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("timeto_firstcolostrum"), 
+                                strata = c("timeofbirth"), 
+                                data= df_colostrum_hours, 
+                                factorVars = c("timeofbirth"))
+
+tableOne_colos
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ timeto_firstcolostrum + timeofbirth, data = df_colostrum_hours, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+Differences by parity?
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("parity"), 
+                                strata = c("timeto_firstcolostrum"), 
+                                data= df_colostrum_hours, 
+                                factorVars = c("timeto_firstcolostrum"))
+
+tableOne_colos
+```
+
+
+
+```{r}
+p = ggplot(df_colostrum_hours, aes(x = parity, color = timeto_firstcolostrum))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of parity by time to first colostrum")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Parity")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+Differences by dam age at parturition?
+```{r}
+tableOne_colos <- CreateTableOne(vars = c("dam_ageparturition_years"), 
+                                strata = c("timeto_firstcolostrum"), 
+                                data= df_colostrum_hours, 
+                                factorVars = c("timeto_firstcolostrum"))
+
+tableOne_colos
+```
+
+
+```{r}
+p = ggplot(df_colostrum_hours, aes(x = dam_ageparturition_years, color = timeto_firstcolostrum))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of dam age at parturition by time to first colostrum")
+p = p + labs(fill = "Time to first colostrum") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Dam Age (years)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+
+

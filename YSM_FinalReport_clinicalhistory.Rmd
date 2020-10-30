@@ -1,0 +1,124 @@
+---
+title: "YSM_FinalReport_clinicalhistory"
+author: "Gema Vidal_7526"
+date: "10/6/2020"
+output: word_document
+---
+
+
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_clinicalhistory_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+```{r}
+#df <- df[, c(3,5,8:34)][df[, c(3,5,8:34)] == ""] <- NA
+#levels(df[c(3,5,8:34)])[levels(df[c(3,5,8:34)]) == ""] <- NA
+#df[df == ""] <- NA
+#apply(df[c(3,5,8:34)], function(x) levels(df[c(3,5,8:34)])[levels(df[c(3,5,8:34)]) == ""] <- NA)
+#str(lala)
+
+
+levels(df$BCS)[levels(df$BCS) == ""] <- NA
+levels(df$age_units)[levels(df$age_units) == ""] <- NA
+levels(df$medicationsincebirth)[levels(df$medicationsincebirth) == ""] <- NA
+levels(df$medicationsincebirth_dewormer)[levels(df$medicationsincebirth_dewormer) == ""] <- NA
+levels(df$medicationsincebirth_oralelectrolytes)[levels(df$medicationsincebirth_oralelectrolytes) == ""] <- NA
+levels(df$medicationsincebirth_other)[levels(df$medicationsincebirth_other) == ""] <- NA
+levels(df$medicationsincebirth_other)[levels(df$medicationsincebirth_other) == "NR"] <- NA
+levels(df$medicationsincebirth_vitamins)[levels(df$medicationsincebirth_vitamins) == ""] <- NA
+levels(df$signsofillness_birthdefects)[levels(df$signsofillness_birthdefects) == ""] <- NA
+levels(df$signsofillness_bleedingorifices)[levels(df$signsofillness_bleedingorifices) == ""] <- NA
+levels(df$signsofillness_bloat)[levels(df$signsofillness_bloat) == ""] <- NA
+levels(df$signsofillness_circling)[levels(df$signsofillness_circling) == ""] <- NA
+levels(df$signsofillness_cloudyeyes)[levels(df$signsofillness_cloudyeyes) == ""] <- NA
+levels(df$signsofillness_collapse)[levels(df$signsofillness_collapse) == ""] <- NA
+levels(df$signsofillness_cough)[levels(df$signsofillness_cough) == ""] <- NA
+levels(df$signsofillness_diarrhea_notbloody)[levels(df$signsofillness_diarrhea_notbloody) == ""] <- NA
+levels(df$signsofillness_difficulturination)[levels(df$signsofillness_difficulturination) == ""] <- NA
+levels(df$signsofillness_difficultybreathing)[levels(df$signsofillness_difficultybreathing) == ""] <- NA
+levels(df$signsofillness_headtilt)[levels(df$signsofillness_headtilt) == ""] <- NA
+levels(df$signsofillness_lameness)[levels(df$signsofillness_lameness) == ""] <- NA
+levels(df$signsofillness_nasaldischarge)[levels(df$signsofillness_nasaldischarge) == ""] <- NA
+levels(df$signsofillness_navelinfection)[levels(df$signsofillness_navelinfection) == ""] <- NA
+levels(df$signsofillness_notsuckling)[levels(df$signsofillness_notsuckling) == ""] <- NA
+levels(df$signsofillness_oculardischarge)[levels(df$signsofillness_oculardischarge) == ""] <- NA
+levels(df$signsofillness_other)[levels(df$signsofillness_other) == ""] <- NA
+levels(df$signsofillness_predation)[levels(df$signsofillness_predation) == ""] <- NA
+levels(df$signsofillness_sincebirth)[levels(df$signsofillness_sincebirth) == ""] <- NA
+levels(df$signsofillness_straindefecate)[levels(df$signsofillness_straindefecate) == ""] <- NA
+levels(df$signsofillness_swollenjoints)[levels(df$signsofillness_swollenjoints) == ""] <- NA
+levels(df$signsofillness_trauma)[levels(df$signsofillness_trauma) == ""] <- NA
+```
+
+
+```{r}
+#factor_cols <- vapply(df, is.factor, logical(1))
+#df[factor_cols] <- lapply(df[factor_cols], factor)
+#str(df)
+df[c(3,5,6,8:34)] <- lapply(df[c(3,5,8:34)], factor)
+#lapply(df[c(3,5,8:34)], factor)
+```
+
+
+Medical history
+---------------
+
+```{r}
+tableOne_meds <- CreateTableOne(vars = c("medicationsincebirth","medicationsincebirth_dewormer",
+                                         "medicationsincebirth_oralelectrolytes","medicationsincebirth_other",
+                                         "medicationsincebirth_vitamins"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_meds
+```
+
+
+
+Symptoms
+---------
+
+
+```{r}
+tableOne_symp <- CreateTableOne(vars = c("signsofillness_collapse",
+                                         "signsofillness_cough",
+                                         "signsofillness_lameness",
+                                         "signsofillness_navelinfection", "signsofillness_notsuckling"), 
+                                strata = c("prod_system"), 
+                                data = df, 
+                                factorVars = c("prod_system"))
+
+tableOne_symp
+```
+
+
+

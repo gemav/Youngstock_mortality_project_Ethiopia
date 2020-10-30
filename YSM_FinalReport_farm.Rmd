@@ -1,0 +1,621 @@
+---
+title: "YSM_FinalReport_farm"
+author: "Gema Vidal_7526"
+date: "10/12/2020"
+output: word_document
+---
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_farm_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$bedding)[levels(df$bedding) == ""] <- NA
+levels(df$bedding_dryandclean)[levels(df$bedding_dryandclean) == ""] <- NA
+levels(df$breed)[levels(df$breed) == ""] <- NA
+levels(df$calfgrouphousing_enoughspace)[levels(df$calfgrouphousing_enoughspace) == ""] <- NA
+levels(df$calfhousedwithdam)[levels(df$calfhousedwithdam) == ""] <- NA
+levels(df$calfhousewithotherlivestock)[levels(df$calfhousewithotherlivestock) == ""] <- NA
+levels(df$district)[levels(df$district) == ""] <- NA
+levels(df$feedingfrequency)[levels(df$feedingfrequency) == ""] <- NA
+levels(df$feedmilkormilkreplacer)[levels(df$feedmilkormilkreplacer) == ""] <- NA
+levels(df$feedmilkormilkreplacer_liters)[levels(df$feedmilkormilkreplacer_liters) == ""] <- NA
+levels(df$housingseparatefromherd)[levels(df$housingseparatefromherd) == ""] <- NA
+levels(df$naveldesinfection)[levels(df$naveldesinfection) == ""] <- NA
+
+levels(df$proceduredone_branding)[levels(df$proceduredone_branding) == ""] <- NA
+levels(df$proceduredone_castration)[levels(df$proceduredone_castration) == ""] <- NA
+levels(df$proceduredone_dehorning)[levels(df$proceduredone_dehorning) == ""] <- NA
+levels(df$proceduredone_earnotch)[levels(df$proceduredone_earnotch) == ""] <- NA
+levels(df$proceduredone_taildocking)[levels(df$proceduredone_taildocking) == ""] <- NA
+levels(df$sex)[levels(df$sex) == ""] <- NA
+levels(df$sire)[levels(df$sire) == ""] <- NA
+levels(df$supplementalfeed)[levels(df$supplementalfeed) == ""] <- NA
+levels(df$supplementalfeed_frequency)[levels(df$supplementalfeed_frequency) == ""] <- NA
+levels(df$vaccinationssincebirth)[levels(df$vaccinationssincebirth) == ""] <- NA
+
+levels(df$waterequipment_clean)[levels(df$waterequipment_clean) == ""] <- NA
+levels(df$watergiven)[levels(df$watergiven) == ""] <- NA
+levels(df$watergiven_frequency)[levels(df$watergiven_frequency) == ""] <- NA
+levels(df$watergiven_independentwatertrough)[levels(df$watergiven_independentwatertrough) == ""] <- NA
+levels(df$watersource)[levels(df$watersource) == ""] <- NA
+levels(df$weaned)[levels(df$weaned) == ""] <- NA
+levels(df$weaned_accesstowater_hours_dryseason)[levels(df$weaned_accesstowater_hours_dryseason) == ""] <- NA
+levels(df$weaned_accesstowater_hours_rainyseason)[levels(df$weaned_accesstowater_hours_rainyseason) == ""] <- NA
+levels(df$weaned_accesstowater_hours_rainyseason)[levels(df$weaned_accesstowater_hours_rainyseason) == " "] <- NA
+levels(df$weaned_concentratefed_dryseason)[levels(df$weaned_concentratefed_dryseason) == ""] <- NA
+levels(df$weaned_concentratefed_rainyseason)[levels(df$weaned_concentratefed_rainyseason) == ""] <- NA
+levels(df$weaned_concentratefed_rainyseason)[levels(df$weaned_concentratefed_rainyseason) == " "] <- NA
+levels(df$weaned_hay_dryseason)[levels(df$weaned_hay_dryseason) == ""] <- NA
+levels(df$weaned_hay_rainyseason)[levels(df$weaned_hay_rainyseason) == ""] <- NA
+levels(df$weaned_hay_dryseason)[levels(df$weaned_hay_dryseason) == " "] <- NA
+levels(df$weaned_hay_rainyseason)[levels(df$weaned_hay_rainyseason) == " "] <- NA
+levels(df$weaned_legumesfed_rainyseason)[levels(df$weaned_legumesfed_rainyseason) == ""] <- NA
+levels(df$weaned_typeextrafeed)[levels(df$weaned_typeextrafeed) == ""] <- NA
+```
+
+
+Drop unused levels
+```{r}
+df[c(2:22,24:34,37:41)] <- lapply(df[c(2:22,24:34,37:41)], factor)
+```
+
+
+Since list of variables is long, I will make subsets based on common areas (housing, pre-weaned feeding, post-weaned feeding, procedures)
+```{r}
+df_house <- df[c(2:8,12:13,19:20,24,30,41)]
+df_feed <- df[c(4,8:11,19:22,25:30,41)]
+df_weaned <- df[c(4,8,19,20,30:41)]
+df_proc <- df[c(4,8,14:20,30,41)]
+```
+
+```{r}
+str(df_proc)
+```
+
+
+Housing
+--------
+
+
+```{r}
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("bedding","prod_system"), 
+                                data= df_house, 
+                                factorVars = c("prod_system","bedding"))
+
+tableOne_house
+```
+
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ bedding + prod_system + bedding_dryandclean, data = df_house, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+```{r}
+df_house_i <- df_house[ which(df_house$prod_system != "Pastoral"), ]
+df_house_i$prod_system <- factor(df_house_i$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding","bedding_dryandclean"), 
+                                strata = c("sire","prod_system"), 
+                                data= df_house_i, 
+                                factorVars = c("prod_system","sire"))
+
+tableOne_house
+```
+
+
+```{r}
+mosaic(~ sire + prod_system + bedding_dryandclean, data = df_house_i, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+```{r}
+tableOne_house <- CreateTableOne(vars = c("bedding","bedding_dryandclean"), 
+                                strata = c("sex"), 
+                                data= df_house, 
+                                factorVars = c("sex"))
+
+tableOne_house
+```
+
+
+```{r}
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("sex","prod_system"), 
+                                data= df_house, 
+                                factorVars = c("prod_system","sex"))
+
+tableOne_house
+```
+
+
+```{r}
+df_house_ii <- df_house[ which(df_house$prod_system != "Mixed-crop"), ]
+df_house_ii$prod_system <- factor(df_house_ii$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("sex","prod_system"), 
+                                data= df_house_ii, 
+                                factorVars = c("prod_system","sex"))
+
+tableOne_house
+```
+
+
+```{r}
+df_house_iii <- df_house[ which(df_house$prod_system == "Peri-urban"), ]
+df_house_iii$prod_system <- factor(df_house_iii$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("sex","prod_system"), 
+                                data= df_house_iii, 
+                                factorVars = c("prod_system","sex"))
+
+tableOne_house
+```
+
+
+```{r}
+df_house_iii <- df_house[ which(df_house$prod_system == "Pastoral"), ]
+df_house_iii$prod_system <- factor(df_house_iii$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("sex","prod_system"), 
+                                data= df_house_iii, 
+                                factorVars = c("prod_system","sex"))
+
+tableOne_house
+```
+
+```{r}
+df_house_iii <- df_house[ which(df_house$prod_system == "Mixed-crop"), ]
+df_house_iii$prod_system <- factor(df_house_iii$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding_dryandclean"), 
+                                strata = c("sex","prod_system"), 
+                                data= df_house_iii, 
+                                factorVars = c("prod_system","sex"))
+
+tableOne_house
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+mosaic(~ sex + prod_system + bedding_dryandclean, data = df_house_ii, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+```{r}
+tableOne_house <- CreateTableOne(vars = c("bedding","bedding_dryandclean"), 
+                                strata = c("weaned"), 
+                                data= df_house, 
+                                factorVars = c("weaned"))
+
+tableOne_house
+```
+
+
+```{r}
+df_house_i <- df_house[ which(df_house$prod_system == "Peri-urban"), ]
+df_house_i$prod_system <- factor(df_house_i$prod_system)
+
+tableOne_house <- CreateTableOne(vars = c("bedding","bedding_dryandclean"), 
+                                strata = c("weaned","prod_system"), 
+                                data= df_house_i, 
+                                factorVars = c("weaned","prod_system"))
+
+tableOne_house
+```
+
+
+Space
+```{r}
+tableOne_house <- CreateTableOne(vars = c("calfgrouphousing_enoughspace","calfhousedwithdam",
+                                          "calfhousewithotherlivestock","housingseparatefromherd"), 
+                                strata = c("prod_system"), 
+                                data= df_house, 
+                                factorVars = c("prod_system"))
+
+tableOne_house
+```
+
+
+```{r}
+tableOne_house <- CreateTableOne(vars = c("calfgrouphousing_enoughspace","calfhousedwithdam",
+                                          "calfhousewithotherlivestock","housingseparatefromherd"), 
+                                strata = c("sire"), 
+                                data= df_house, 
+                                factorVars = c("sire"))
+
+tableOne_house
+```
+
+
+
+Procedures
+----------
+
+
+```{r}
+tableOne_proc <- CreateTableOne(vars = c("naveldesinfection","vaccinationssincebirth"), 
+                                strata = c("prod_system"), 
+                                data= df_house, 
+                                factorVars = c("prod_system"))
+
+tableOne_proc
+```
+
+
+```{r}
+tableOne_proc <- CreateTableOne(vars = c("proceduredone_branding","proceduredone_castration",
+                                         "proceduredone_dehorning","proceduredone_earnotch",
+                                         "proceduredone_taildocking"), 
+                                strata = c("prod_system"), 
+                                data= df_proc, 
+                                factorVars = c("prod_system"))
+
+tableOne_proc
+```
+
+
+Feeding pre-weaned calves
+-------------------------
+
+```{r}
+str(df_feed)
+```
+
+What are they fed?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer"), 
+                                strata = c("prod_system"), 
+                                data= df_feed, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+
+How often and how much?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedingfrequency"), 
+                                strata = c("prod_system"), 
+                                data= df_feed, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+```{r}
+# there is one that the answer is "no" for feed milk or milk replacer (liters) and it is because it is a weaned calf. I will remove it now
+df_feed_i <- df_feed[ which(df_feed$feedmilkormilkreplacer_liters != "no"), ]
+df_feed_i$feedmilkormilkreplacer_liters <- factor(df_feed_i$feedmilkormilkreplacer_liters)
+
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer_liters"), 
+                                strata = c("prod_system"), 
+                                data= df_feed_i, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+
+
+
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer_liters", "feedingfrequency"), 
+                                strata = c("prod_system"), 
+                                data= df_feed_i, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer_liters"), 
+                                strata = c("feedingfrequency"), 
+                                data= df_feed_i, 
+                                factorVars = c("feedingfrequency"))
+
+tableOne_feed
+```
+
+
+Differences by sex?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer_liters"), 
+                                strata = c("sex"), 
+                                data= df_feed_i, 
+                                factorVars = c("sex"))
+
+tableOne_feed
+```
+
+
+Differences by sire?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("feedmilkormilkreplacer_liters"), 
+                                strata = c("sire"), 
+                                data= df_feed_i, 
+                                factorVars = c("sire"))
+
+tableOne_feed
+```
+
+
+Supplemental feed
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("supplementalfeed"), 
+                                strata = c("prod_system"), 
+                                data= df_feed, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+
+Repeat without pastoral herds. I want to see if there are differences by production system
+```{r}
+df_feed_ii <- df_feed[ which(df_feed$prod_system != "Pastoral"), ]
+df_feed_ii$prod_system <- factor(df_feed_ii$prod_system)
+
+
+tableOne_feed <- CreateTableOne(vars = c("supplementalfeed"), 
+                                strata = c("prod_system"), 
+                                data= df_feed_ii, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+Frequency for those where supplemental feed is provided
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("supplementalfeed_frequency"), 
+                                strata = c("prod_system"), 
+                                data= df_feed_ii, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+Are those that are fed less amount of milk or less frequently fed more frequently supplemental feed?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("supplementalfeed_frequency"), 
+                                strata = c("feedmilkormilkreplacer"), 
+                                data= df_feed_ii, 
+                                factorVars = c("feedmilkormilkreplacer"))
+
+tableOne_feed
+```
+Did not depend on whether calves were receiving milk or milk replacer.
+
+
+```{r}
+# use the dataframe that does not have the level 'no' by using df_feed_i
+
+tableOne_feed <- CreateTableOne(vars = c("supplementalfeed_frequency"), 
+                                strata = c("feedmilkormilkreplacer_liters"), 
+                                data= df_feed_i, 
+                                factorVars = c("feedmilkormilkreplacer_liters"))
+
+tableOne_feed
+```
+
+
+```{r, fig.height = 18, fig.width = 18, echo = FALSE}
+mosaic(~ supplementalfeed_frequency + feedmilkormilkreplacer_liters + sire, data = df_feed_i, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+```{r, fig.height = 20, fig.width = 20, echo = FALSE}
+# Drop some levels to get a clearer picture of what may be going on
+df_feed_iii <- df_feed[ which(df_feed_i$supplementalfeed_frequency != "more than twice a day"), ]
+df_feed_iv <- df_feed_iii[ which(df_feed_iii$feedmilkormilkreplacer_liters != "greater than 1 liter"), ]
+
+df_feed_iv$supplementalfeed_frequency <- factor(df_feed_iv$supplementalfeed_frequency)
+df_feed_iv$feedmilkormilkreplacer_liters <- factor(df_feed_iv$feedmilkormilkreplacer_liters)
+
+
+mosaic(~ supplementalfeed_frequency + feedmilkormilkreplacer_liters + sire, data = df_feed_iv, shade = TRUE, legend = TRUE, color = TRUE)
+```
+
+
+Water-related variables.
+```{r}
+str(df_feed)
+```
+
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("watergiven", "watergiven_frequency", 
+                                         "watergiven_independentwatertrough", "waterequipment_clean",
+                                         "watersource"), 
+                                strata = c("prod_system"), 
+                                data= df_feed, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+Water given, if yes, water given frequency and water given independent water trough
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("watergiven"), 
+                                strata = c("prod_system"), 
+                                data= df_feed, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+
+Remove those observations where water given was = 'no' to remove errors (those that answer no water was given but replied to water frequency and if water was provided in an independent water trough)
+```{r}
+df_feed_vi <- df_feed[ which(df_feed$watergiven == "yes"), ]
+
+tableOne_feed <- CreateTableOne(vars = c("watergiven_frequency","watergiven_independentwatertrough"), 
+                                strata = c("prod_system"), 
+                                data= df_feed_vi, 
+                                factorVars = c("prod_system"))
+
+tableOne_feed
+```
+
+Most mixed crop farms and pastoral herds provided water only once a day, and 77.5% of peri-urban farms did so twice a day. None of the pastoral herds providing water to their calves did so in independent water troughs, and a small proportion of mixed crop and peri-urban farms did provided in independent water troughs.
+
+
+Has sex of the calves have something to do with the frequency of water given?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("watergiven_frequency","watergiven_independentwatertrough"), 
+                                strata = c("sex"), 
+                                data= df_feed_vi, 
+                                factorVars = c("sex"))
+
+tableOne_feed
+```
+
+
+Has weaning have something to do with the frequency of the water?
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("watergiven_frequency","watergiven_independentwatertrough"), 
+                                strata = c("weaned"), 
+                                data= df_feed_vi, 
+                                factorVars = c("weaned"))
+
+tableOne_feed
+```
+Students focused on pre-weaned calves. No inferences can be made at this point of the survey data.
+
+
+
+Water equipment and water source was only asked in Gondar. Taking a subset of peri-urban farms
+```{r}
+str(df_feed_vi)
+```
+
+
+
+```{r}
+df_feed_vii <- df_feed[ which(df_feed$district == "Gondar"), ]
+
+tableOne_feed <- CreateTableOne(vars = c("watergiven_frequency"), 
+                                strata = c("waterequipment_clean"), 
+                                data= df_feed_vii, 
+                                factorVars = c("waterequipment_clean"))
+
+tableOne_feed
+```
+
+
+```{r}
+tableOne_feed <- CreateTableOne(vars = c("watergiven_frequency"), 
+                                strata = c("watersource"), 
+                                data= df_feed_vii, 
+                                factorVars = c("watersource"))
+
+tableOne_feed
+```
+
+36.4% of the calves are consuming river or spring water. If this water is not treated, then a large proportion of animals are exposed to waterborne diseases.
+
+
+Feeding weaned calves
+----------------------
+
+```{r}
+str(df_weaned)
+```
+
+
+Get a general sense of where the data were collected
+```{r}
+tableOne_weaned <- CreateTableOne(vars = c("weaned_typeextrafeed",
+                                           "weaned_accesstowater_hours_dryseason","weaned_accesstowater_hours_rainyseason",
+                                           "weaned_concentratefed_dryseason","weaned_concentratefed_rainyseason",
+                                           "weaned_grazinghours_dryseason","weaned_grazinghours_rainyseason",
+                                           "weaned_hay_dryseason","weaned_hay_rainyseason",
+                                           "weaned_legumesfed_rainyseason"), 
+                                  strata = c("weaned"), 
+                                  data= df_weaned, 
+                                  factorVars = c("weaned"))
+
+tableOne_weaned
+```
+
+Obviously, the question was not understood by the students, because most questions have answers for those animals that answer 'no' to the question weaned.
+
+
+Per production system
+```{r}
+tableOne_weaned <- CreateTableOne(vars = c("weaned_typeextrafeed",
+                                           "weaned_accesstowater_hours_dryseason","weaned_accesstowater_hours_rainyseason",
+                                           "weaned_concentratefed_dryseason","weaned_concentratefed_rainyseason",
+                                           "weaned_grazinghours_dryseason","weaned_grazinghours_rainyseason",
+                                           "weaned_hay_dryseason","weaned_hay_rainyseason"), 
+                                  strata = c("prod_system"), 
+                                  data= df_weaned, 
+                                  factorVars = c("prod_system"))
+
+tableOne_weaned
+```
+
+
+Differences by sex?
+```{r}
+tableOne_weaned <- CreateTableOne(vars = c("weaned_typeextrafeed",
+                                           "weaned_accesstowater_hours_dryseason","weaned_accesstowater_hours_rainyseason",
+                                           "weaned_concentratefed_dryseason","weaned_concentratefed_rainyseason",
+                                           "weaned_grazinghours_dryseason","weaned_grazinghours_rainyseason",
+                                           "weaned_hay_dryseason","weaned_hay_rainyseason"), 
+                                  strata = c("sex"), 
+                                  data= df_weaned, 
+                                  factorVars = c("sex"))
+
+tableOne_weaned
+```
+No differences by sex
+
+
+Differences by sire?
+```{r}
+tableOne_weaned <- CreateTableOne(vars = c("weaned_typeextrafeed",
+                                           "weaned_accesstowater_hours_dryseason","weaned_accesstowater_hours_rainyseason",
+                                           "weaned_concentratefed_dryseason","weaned_concentratefed_rainyseason",
+                                           "weaned_grazinghours_dryseason","weaned_grazinghours_rainyseason",
+                                           "weaned_hay_dryseason","weaned_hay_rainyseason"), 
+                                  strata = c("sire"), 
+                                  data= df_weaned, 
+                                  factorVars = c("sire"))
+
+tableOne_weaned
+```
+

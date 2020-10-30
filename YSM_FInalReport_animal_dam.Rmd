@@ -1,0 +1,448 @@
+---
+title: "YSM_FinalReport_animal"
+author: "Gema Vidal_7526"
+date: "10/7/2020"
+output: word_document
+---
+
+
+```{r}
+library("tidyverse")
+library("plyr")
+library("dplyr")
+library("MASS")
+library("car")
+library("foreign")
+library("psych")
+library("stats")
+library("Matrix")
+library("lme4")
+library("lattice")
+#library("gmodels") # for CrossTable
+#library("irr")
+library("vcd")
+library("lsmeans") # for contrasts
+library('GGally')
+library("tableone")
+```
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_animal_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$age_units)[levels(df$age_units) == ""] <- NA
+levels(df$birth_witness)[levels(df$birth_witness) == ""] <- NA
+levels(df$birthlocation)[levels(df$birthlocation) == ""] <- NA
+levels(df$breed)[levels(df$breed) == ""] <- NA
+levels(df$breed_name)[levels(df$breed_name) == ""] <- NA
+levels(df$calf_bcs)[levels(df$calf_bcs) == ""] <- NA
+levels(df$sex)[levels(df$sex) == ""] <- NA
+levels(df$sire)[levels(df$sire) == ""] <- NA
+levels(df$timeofbirth)[levels(df$timeofbirth) == ""] <- NA
+levels(df$typedelivery)[levels(df$typedelivery) == ""] <- NA
+levels(df$weaned)[levels(df$weaned) == ""] <- NA
+levels(df$weaned_agemonths)[levels(df$weaned_agemonths) == ""] <- NA
+```
+
+
+Drop unused levels
+```{r}
+df[c(4:16)] <- lapply(df[c(4:16)], factor)
+```
+
+
+```{r}
+df$birthlocation <- revalue(df$birthlocation, c("Calving pen"="In barn", "In barn"="In barn",
+                                                "Outside"="Outside", "Same cow barn"="In barn"))
+```
+
+
+
+
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("birth_witness","birthlocation",
+                                         "breed","breed_name",
+                                         "calf_bcs", "sire", "timeofbirth", "typedelivery"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_anim
+```
+
+
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("birth_witness",
+                                         "breed","breed_name", "sire"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_anim
+```
+
+
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("birth_witness"), 
+                                strata = c("birthlocation"), 
+                                data= df, 
+                                factorVars = c("birthlocation"))
+
+tableOne_anim
+```
+
+
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("birthlocation","timeofbirth"), 
+                                strata = c("typedelivery"), 
+                                data= df, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+Birth location by production system:
+1. Mixed crop livestock
+```{r}
+df_mixed <- df[df$prod_system == "Mixed-crop", ]
+df_mixed$prod_system <- factor(df_mixed$prod_system)
+
+tableOne_anim <- CreateTableOne(vars = c("birthlocation"), 
+                                strata = c("typedelivery"), 
+                                data= df_mixed, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+
+2. Pastoral
+```{r}
+df_pastoral <- df[df$prod_system == "Pastoral", ]
+df_pastoral$prod_system <- factor(df_pastoral$prod_system)
+
+tableOne_anim <- CreateTableOne(vars = c("birthlocation"), 
+                                strata = c("typedelivery"), 
+                                data= df_pastoral, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+
+3. Peri-urban
+```{r}
+df_periurban <- df[df$prod_system == "Peri-urban", ]
+df_periurban$prod_system <- factor(df_periurban$prod_system)
+
+tableOne_anim <- CreateTableOne(vars = c("birthlocation"), 
+                                strata = c("typedelivery"), 
+                                data= df_periurban, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+
+Time of birth:
+1. Mixed crop livestock
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("timeofbirth"), 
+                                strata = c("typedelivery"), 
+                                data= df_mixed, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+2. Pastoral
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("timeofbirth"), 
+                                strata = c("typedelivery"), 
+                                data= df_pastoral, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+
+3. Peri-urban
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("timeofbirth"), 
+                                strata = c("typedelivery"), 
+                                data= df_periurban, 
+                                factorVars = c("typedelivery"))
+
+tableOne_anim
+```
+
+
+
+Associations between sex, sire, type of delivery, and time of birth.
+```{r}
+tableOne_anim <- CreateTableOne(vars = c("sire","typedelivery","timeofbirth", "birthlocation"), 
+                                strata = c("sex"), 
+                                data= df, 
+                                factorVars = c("sex"))
+
+tableOne_anim
+```
+
+
+
+
+----------------------
+DAM-LEVEL RISK FACTORS
+----------------------
+
+
+```{r}
+setwd("/Users/gemavidal/Box Sync/Vet/Projects and Papers/2020 YSM USAID Final Report")
+df = read.csv("df_dam_cleaned.csv", stringsAsFactors = TRUE)
+```
+
+```{r}
+str(df)
+```
+
+
+```{r}
+levels(df$dam_alive)[levels(df$dam_alive) == ""] <- NA
+levels(df$dam_deathwithin2weeksparturition)[levels(df$dam_deathwithin2weeksparturition) == ""] <- NA
+levels(df$dam_motheringinstinct)[levels(df$dam_motheringinstinct) == ""] <- NA
+levels(df$dam_vaccines_type)[levels(df$dam_vaccines_type) == ""] <- NA
+levels(df$dam_vaccines2monthsbeforedelivery)[levels(df$dam_vaccines2monthsbeforedelivery) == ""] <- NA
+```
+
+Drop unused levels
+```{r}
+df[c(4,6,8:10)] <- lapply(df[c(4,6,8:10)], factor)
+```
+
+
+Categorical variables
+```{r}
+tableOne_dam <- CreateTableOne(vars = c("dam_alive","dam_deathwithin2weeksparturition",
+                                         "dam_motheringinstinct","dam_vaccines_type",
+                                         "dam_vaccines2monthsbeforedelivery"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_dam
+```
+
+
+Continuous variables
+```{r}
+tableOne_dam <- CreateTableOne(vars = c("parity","dam_milkyield_liters",
+                                         "dam_ageparturition_years", "dam_bcs1to5"), 
+                                strata = c("prod_system"), 
+                                data= df, 
+                                factorVars = c("prod_system"))
+
+tableOne_dam
+```
+
+
+Questions:
+- I would like to see those significant differences by parity, by milk yield, by age at parturition, and by BCS (plot a box plot to see the differences) by production system.
+- Who are those with poor mothering instinct? do they make less milk? do they have lower BCS? are they lower parity cows?
+- What is the association between parity and age at parturition? does it contain the same type of information?
+
+```{r}
+#tiff('[write name of file here].tiff', units = 'cm', width = 19, height = 10, res = 600)
+
+p = ggplot(df, aes(x = parity, color = prod_system))
+p = p + geom_density()
+#p = p + geom_vline(df, aes(xintercept=grp.mean, color = prod_system), linetype = 'dashed')
+p = p + ggtitle("Distribution of dam parity by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + ylab("Density") + xlab("Parity")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+
+#dev.off()
+```
+
+
+By parity and production system
+```{r}
+p = ggplot(df, aes(x = parity, color = prod_system))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of dam parity by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Parity")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+By age at parturtion and production system
+```{r}
+p = ggplot(df, aes(x = dam_ageparturition_years, color = prod_system))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of dam age at parturition by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Age at parturition (years)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+
+By milk yield and production system
+```{r}
+p = ggplot(df, aes(x = dam_milkyield_liters, color = prod_system))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of milk yield (liters) by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Milk Yield (liters)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+By BCS and production system
+```{r}
+p = ggplot(df, aes(x = dam_bcs1to5, color = prod_system))
+p = p + geom_boxplot()
+p = p + ggtitle("Distribution of body condition score (1 to 5) by production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Body Condition Score (BSC)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+What is the association between age at parturition and parity?
+```{r, fig.height = 5, fig.width = 10, echo = FALSE}
+p = ggplot(df, aes(x = parity, y = dam_ageparturition_years))
+p = p + geom_point() + geom_smooth()
+p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 3)
+p = p + ggtitle("Relationship between parity and age at parturtion using locally estimated scatterplot smoothing (LOESS)")
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Parity") + ylab("Age at parturition (years)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+Who are those with poor mothering instinct? are those the younger ones?
+```{r}
+levels(df$dam_motheringinstinct)
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+df$dam_motheringinstinct <- factor(df$dam_motheringinstinct)
+
+p = ggplot(df, aes(x = dam_ageparturition_years, color = dam_motheringinstinct), na.rm = TRUE)
+p = p + geom_boxplot()
+#p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 2)
+p = p + facet_wrap(~ prod_system, ncol = 1)
+p = p + ggtitle("Distribution dam age at parturition (years) by dam mothering instict and production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Age at parturition (years)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+How can I get rid of the NaN? So far, what I've done so far hasn't worked
+Try to do one plot per production system instead of the facet_wrap
+```{r}
+df_mixed <- df[df$prod_system == 'Mixed-crop',]
+df_mixed$prod_system <- factor(df_mixed$prod_system)
+#df$dam_motheringinstinct <- factor(df$dam_motheringinstinct)
+levels(df_mixed$dam_motheringinstinct)
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+p = ggplot(df_mixed, aes(x = dam_ageparturition_years, color = dam_motheringinstinct))
+p = p + geom_boxplot()
+#p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 2)
+#p = p + facet_wrap(~ prod_system, ncol = 1)
+p = p + ggtitle("Distribution dam age at parturition (years) by dam mothering instict and production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Age at parturition (years)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+p = ggplot(df, aes(x = dam_bcs1to5, color = dam_motheringinstinct), na.rm = TRUE)
+p = p + geom_boxplot()
+#p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 2)
+p = p + facet_wrap(~ prod_system, ncol = 1)
+p = p + ggtitle("Distribution of body condition score (1 to 5) by mothering instinct and production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Body Condition Score (1 to 5)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+```{r, fig.height = 8, fig.width = 10, echo = FALSE}
+p = ggplot(df, aes(x = dam_milkyield_liters, color = dam_motheringinstinct), na.rm = TRUE)
+p = p + geom_boxplot()
+#p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 2)
+p = p + facet_wrap(~ prod_system, ncol = 1)
+p = p + ggtitle("Distribution of milk yield (liters) by mothering instinct and production system")
+p = p + labs(fill = "Production System") + guides(shape = FALSE)
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("Milk Yield (liters)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+```{r}
+tableOne_dam <- CreateTableOne(vars = c("dam_bcs1to5","dam_ageparturition_years", "dam_milkyield_liters"), 
+                                strata = c("dam_motheringinstinct"), 
+                                data= df, 
+                                factorVars = c("dam_motheringinstinct"))
+
+tableOne_dam
+```
+
+
+Association between BCS and milk yield.
+```{r, fig.height = 5, fig.width = 10, echo = FALSE}
+p = ggplot(df, aes(x = dam_bcs1to5, y = dam_milkyield_liters))
+p = p + geom_point() + geom_smooth()
+p = p + facet_wrap(~ prod_system, scales = 'free_x', ncol = 3)
+p = p + ggtitle("Relationship between BCS and milk yield (lts.) using locally estimated scatterplot smoothing (LOESS)")
+p = p + theme(plot.title = element_text(size = 12, face = "bold", margin = margin(10, 0, 10, 0)))
+p = p + xlab("BCS (1 to 5)") + ylab("Milk yield (lts.)")
+p + scale_fill_brewer(type = "qual", palette = "Set2")
+p
+```
+
+
+
+
+
+
+
+
+
